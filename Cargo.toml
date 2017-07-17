@@ -1,0 +1,8 @@
+[package]
+name = "esptool"
+version = "0.1.0"
+authors = ["Robby Madruga <rmadruga@illumtechnology.com>"]
+
+[dependencies]
+clap = "2.25.0"
+serialport = "1.0.1"
