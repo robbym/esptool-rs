@@ -1,3 +1,5 @@
+#![feature(slice_patterns)]
+
 extern crate clap;
 use clap::{App, Arg};
 
@@ -5,6 +7,8 @@ extern crate serialport;
 
 use std::result::Result;
 use std::convert::From;
+
+mod protocol;
 
 #[derive(Debug)]
 enum Error {
