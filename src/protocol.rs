@@ -2,7 +2,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::convert::{From, Into};
 
-trait Bootloader: Read + Write {
+trait Protocol: Read + Write {
     fn frame_check(&mut self) -> Result<(), Error> {
         let mut data = [0u8; 1];
 
@@ -61,7 +61,7 @@ trait Bootloader: Read + Write {
     }
 }
 
-impl<T> Bootloader for T where T: Read + Write {}
+impl<T> Protocol for T where T: Read + Write {}
 
 #[derive(Debug)]
 enum Error {
