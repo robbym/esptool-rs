@@ -1,20 +1,83 @@
+use std::io;
 use std::io::{Read, Write};
-use std::convert::Into;
+use std::convert::{From, Into};
 
 trait Bootloader: Read + Write {
-    fn send_packet(packet: &SLIPPacket) -> Result<SLIPPacket, Error> {
-        
+    fn frame_check(&mut self) -> Result<(), Error> {
+        let mut data = [0u8; 1];
+
+        self.read_exact(&mut data)?;
+        if data[0] != 0xC0 {
+            return Err(Error::SLIPFrame);
+        }
+
+        Ok(())
+    }
+
+    fn recv_bytes(&mut self, packet: &mut Vec<u8>, expected: usize) -> Result<(), Error> {
+        let mut data = [0u8; 1];
+
+        while packet.len() < expected {
+            self.read_exact(&mut data)?;
+            match data[0] {
+                0xDB => {
+                    self.read_exact(&mut data)?;
+                    match data[0] {
+                        0xDC => {packet.push(0xC0);},
+                        0xDD => {packet.push(0xDB);},
+                        _ => {return Err(Error::SLIPFrame);},
+                    }
+                },
+                byte => {packet.push(byte);}
+            }
+        }
+
+        Ok(())
+    }
+
+    fn recv_packet(&mut self) -> Result<Packet, Error> {
+        let mut packet = Vec::new();
+
+        self.frame_check()?;
+
+        self.recv_bytes(&mut packet, 8)?;
+
+        if packet[0] != 0x01 {
+            return Err(Error::Direction);
+        }
+
+        let size = (packet[2] as u16) | ((packet[3] as u16) << 8);
+        self.recv_bytes(&mut packet, (size + 6) as usize)?;
+
+        self.frame_check()?;
+
+        Ok(Packet(packet))
+    }
+
+    fn send_packet(&mut self, packet: &SLIPPacket) -> Result<(), Error> {
+        let &SLIPPacket(ref packet) = packet;
+        self.write_all(&packet)?;
+        Ok(())
     }
 }
 
+impl<T> Bootloader for T where T: Read + Write {}
+
 #[derive(Debug)]
 enum Error {
+    Device(io::Error),
     SLIPFrame,
     Direction,
     Command,
     Length,
     Checksum,
     Failure(u8),
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Error {
+        Error::Device(error)
+    }
 }
 
 enum Opcode {
@@ -33,16 +96,16 @@ enum Opcode {
 impl Into<u8> for Opcode {
     fn into(self) -> u8 {
         match self {
-            FlashStart => 0x02,
-            FlashData => 0x03,
-            FlashFinish => 0x04,
-            RAMStart => 0x05,
-            RAMFinish => 0x06,
-            RAMData => 0x07,
-            SyncFrame => 0x08,
-            WriteReg => 0x09,
-            ReadReg => 0x0A,
-            ConfigSPI => 0x0B,
+            Opcode::FlashStart => 0x02,
+            Opcode::FlashData => 0x03,
+            Opcode::FlashFinish => 0x04,
+            Opcode::RAMStart => 0x05,
+            Opcode::RAMFinish => 0x06,
+            Opcode::RAMData => 0x07,
+            Opcode::SyncFrame => 0x08,
+            Opcode::WriteReg => 0x09,
+            Opcode::ReadReg => 0x0A,
+            Opcode::ConfigSPI => 0x0B,
         }
     }
 }
@@ -86,33 +149,4 @@ fn slip_encode(packet: Packet) -> SLIPPacket {
     encoded.push(0xC0);
 
     SLIPPacket(encoded)
-}
-
-fn slip_decode(encoded: SLIPPacket) -> Result<Packet, Error> {
-    let SLIPPacket(mut packet) = encoded;
-
-    if packet[0] != 0xC0 || packet[packet.len()-1] != 0xC0 {
-        return Err(Error::SLIPFrame);
-    }
-
-    packet.remove(0);
-    packet.pop();
-
-    for i in (0..packet.len()-1).rev() {
-        match packet[i..i+1] {
-            [0xDB, 0xDC] => {packet[i] = 0xC0; packet.remove(i+1);},
-            [0xDB, 0xDD] => {packet[i] = 0xDB; packet.remove(i+1);},
-            _ => {},
-        }
-    }
-
-    Ok(Packet(packet))
-}
-
-#[test]
-fn encode_decode() {
-    let data = vec![1, 2, 0xC0, 4, 5, 0xDB, 7, 8, 9, 10];
-    let packet1 = create_request(Opcode::FlashStart, &data);
-    let packet2 = slip_decode(slip_encode(packet1.clone())).unwrap();
-    assert!(packet1 == packet2);
 }
