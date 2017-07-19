@@ -2,7 +2,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::convert::{From, Into};
 
-trait Protocol: Read + Write {
+pub(crate) trait Protocol: Read + Write {
     fn frame_check(&mut self) -> Result<(), Error> {
         let mut data = [0u8; 1];
 
@@ -14,10 +14,10 @@ trait Protocol: Read + Write {
         Ok(())
     }
 
-    fn recv_bytes(&mut self, packet: &mut Vec<u8>, expected: usize) -> Result<(), Error> {
+    fn recv_bytes(&mut self, packet: &mut Vec<u8>, num: usize) -> Result<(), Error> {
         let mut data = [0u8; 1];
 
-        while packet.len() < expected {
+        for _ in 0..num {
             self.read_exact(&mut data)?;
             match data[0] {
                 0xDB => {
@@ -35,23 +35,55 @@ trait Protocol: Read + Write {
         Ok(())
     }
 
-    fn recv_packet(&mut self) -> Result<Packet, Error> {
+    fn try_recv(&mut self)-> Result<Packet, Error> {
         let mut packet = Vec::new();
 
         self.frame_check()?;
 
+        println!("FRAME: Check Start");
+
         self.recv_bytes(&mut packet, 8)?;
+        println!("FRAME: Recv Bytes");
 
         if packet[0] != 0x01 {
             return Err(Error::Direction);
         }
 
-        let size = (packet[2] as u16) | ((packet[3] as u16) << 8);
-        self.recv_bytes(&mut packet, (size + 6) as usize)?;
+        println!("Command: {}", packet[1]);
+
+        let size = ((packet[2] as u16) | ((packet[3] as u16) << 8)) as usize;
+
+        println!("Size: {}", size);
+
+        self.recv_bytes(&mut packet, size)?;
+        println!("FRAME: Recv Body {:?}", &packet[8..8+size]);
+
+        if packet[packet.len()-2] != 0x00 {
+            return Err(Error::Failure(packet[packet.len()-1]));
+        }
 
         self.frame_check()?;
+        println!("FRAME: Check End");
 
         Ok(Packet(packet))
+    }
+
+    fn recv_packet(&mut self, opcode: Opcode) -> Result<Packet, Error> {
+        let mut count = 0;
+        let opcode: u8 = opcode.into();
+        loop {
+            match self.try_recv() {
+                Ok(packet) => {
+                    if packet.command() == opcode.into() {
+                        return Ok(packet);
+                    }
+                },
+                Err(e) => {
+                    if count < 100 {count += 1;}
+                    else {return Err(e);}
+                },
+            }
+        }
     }
 
     fn send_packet(&mut self, packet: &SLIPPacket) -> Result<(), Error> {
@@ -61,10 +93,10 @@ trait Protocol: Read + Write {
     }
 }
 
-impl<T> Protocol for T where T: Read + Write {}
+impl<T> Protocol for T where T: Read + Write + ?Sized {}
 
 #[derive(Debug)]
-enum Error {
+pub enum Error {
     Device(io::Error),
     SLIPFrame,
     Direction,
@@ -80,7 +112,7 @@ impl From<io::Error> for Error {
     }
 }
 
-enum Opcode {
+pub(crate) enum Opcode {
     FlashStart,
     FlashData,
     FlashFinish,
@@ -111,12 +143,34 @@ impl Into<u8> for Opcode {
 }
 
 #[derive(Clone, PartialEq)]
-struct Packet(Vec<u8>);
+pub(crate) struct Packet(pub(crate) Vec<u8>);
+impl Packet {
+    pub fn command(&self) -> u8 {
+        let &Packet(ref packet) = self;
+        packet[1]
+    }
+
+    pub fn size(&self) -> usize {
+        let &Packet(ref packet) = self;
+        (packet[2] as usize) | ((packet[3] as usize) << 8)
+    }
+
+    pub fn value(&self) -> &[u8] {
+        let &Packet(ref packet) = self;
+        &packet[4..8]
+    }
+
+    pub fn body(&self) -> &[u8] {
+        let &Packet(ref packet) = self;
+        &packet[8..self.size()+8]
+    }
+}
+
 
 #[derive(Clone, PartialEq)]
-struct SLIPPacket(Vec<u8>);
+pub(crate) struct SLIPPacket(Vec<u8>);
 
-fn create_request(command: Opcode, body: &[u8]) -> Packet {
+pub(crate) fn create_request(command: Opcode, body: &[u8]) -> Packet {
     let mut packet = Vec::new();
 
     let len = body.len() as u16;
@@ -135,7 +189,7 @@ fn create_request(command: Opcode, body: &[u8]) -> Packet {
 }
 
 
-fn slip_encode(packet: Packet) -> SLIPPacket {
+pub(crate) fn slip_encode(packet: Packet) -> SLIPPacket {
     let Packet(packet) = packet;
 
     let mut encoded = packet.iter().fold(vec![0xC0], |mut acc, n| {
