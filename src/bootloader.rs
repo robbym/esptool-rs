@@ -19,6 +19,7 @@ impl Into<u32> for Register {
 pub trait Bootloader: Read + Write {
     fn read_reg(&mut self, reg: Register) -> Result<u32, Error> {
         let reg: u32 = reg.into();
+        let reg: u32 = 0; // TODO: Fix this. Not reading properly.
         let data = [
             (reg as u8),
             (reg >> 8) as u8,
@@ -53,6 +54,7 @@ pub trait Bootloader: Read + Write {
         );
         self.send_packet(&request)?;
         self.recv_packet(Opcode::SyncFrame)?;
+        for _ in 0..7 {self.recv_packet(Opcode::SyncFrame)?;}
         Ok(())
     }
 }

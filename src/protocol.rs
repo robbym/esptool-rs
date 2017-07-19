@@ -40,30 +40,17 @@ pub(crate) trait Protocol: Read + Write {
 
         self.frame_check()?;
 
-        println!("FRAME: Check Start");
-
         self.recv_bytes(&mut packet, 8)?;
-        println!("FRAME: Recv Bytes");
 
         if packet[0] != 0x01 {
             return Err(Error::Direction);
         }
 
-        println!("Command: {}", packet[1]);
-
         let size = ((packet[2] as u16) | ((packet[3] as u16) << 8)) as usize;
 
-        println!("Size: {}", size);
-
         self.recv_bytes(&mut packet, size)?;
-        println!("FRAME: Recv Body {:?}", &packet[8..8+size]);
-
-        if packet[packet.len()-2] != 0x00 {
-            return Err(Error::Failure(packet[packet.len()-1]));
-        }
 
         self.frame_check()?;
-        println!("FRAME: Check End");
 
         Ok(Packet(packet))
     }
@@ -71,19 +58,22 @@ pub(crate) trait Protocol: Read + Write {
     fn recv_packet(&mut self, opcode: Opcode) -> Result<Packet, Error> {
         let mut count = 0;
         let opcode: u8 = opcode.into();
-        loop {
+
+        for _ in 0..100 {
             match self.try_recv() {
                 Ok(packet) => {
-                    if packet.command() == opcode.into() {
+                    if packet.command() == opcode {
+                        println!("Packet: {:?}", packet);
                         return Ok(packet);
                     }
                 },
-                Err(e) => {
-                    if count < 100 {count += 1;}
-                    else {return Err(e);}
-                },
+                Err(error) => {
+                    return Err(error);
+                }
             }
         }
+
+        Err(Error::Command)
     }
 
     fn send_packet(&mut self, packet: &SLIPPacket) -> Result<(), Error> {
@@ -103,7 +93,6 @@ pub enum Error {
     Command,
     Length,
     Checksum,
-    Failure(u8),
 }
 
 impl From<io::Error> for Error {
@@ -142,7 +131,7 @@ impl Into<u8> for Opcode {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Packet(pub(crate) Vec<u8>);
 impl Packet {
     pub fn command(&self) -> u8 {
