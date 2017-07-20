@@ -56,7 +56,6 @@ pub(crate) trait Protocol: Read + Write {
     }
 
     fn recv_packet(&mut self, opcode: Opcode) -> Result<Packet, Error> {
-        let mut count = 0;
         let opcode: u8 = opcode.into();
 
         for _ in 0..100 {

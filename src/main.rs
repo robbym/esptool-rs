@@ -44,34 +44,6 @@ impl From<protocol::Error> for Error {
     }
 }
 
-fn try_sync(port: &mut Box<SerialPort>) -> Result<(), Error> {
-    port.read_to_end(&mut Vec::new());
-    port.flush()?;
-    port.sync()?;
-    port.set_timeout(Duration::from_secs(3))?;
-    Ok(())
-}
-
-fn target_reset(mut port: &mut Box<SerialPort>, delay: bool) -> Result<(), Error> {
-    port.write_data_terminal_ready(false)?;
-    port.write_request_to_send(true)?;
-
-    thread::sleep(Duration::from_millis(100));
-    if delay {thread::sleep(Duration::from_millis(1200));}
-
-    port.write_data_terminal_ready(true)?;
-    port.write_request_to_send(false)?;
-
-    if delay {thread::sleep(Duration::from_millis(400));}
-    thread::sleep(Duration::from_millis(50));
-
-    port.write_data_terminal_ready(false)?;
-
-    Ok(())
-}
-
-
-
 fn connect(port_name: &str) -> Result<Box<SerialPort>, Error>  {
     let settings = SerialPortSettings {
         baud_rate: BaudRate::Baud115200,
@@ -82,8 +54,35 @@ fn connect(port_name: &str) -> Result<Box<SerialPort>, Error>  {
         timeout: Duration::from_secs(3),
     };
 
-    let connect_attempt = |delay| {
+    fn try_sync(port: &mut Box<SerialPort>) -> Result<(), Error> {
+        port.read_to_end(&mut Vec::new());
+        port.flush()?;
+        port.sync()?;
+        port.set_timeout(Duration::from_secs(3))?;
+        Ok(())
+    }
+
+    fn target_reset(mut port: &mut Box<SerialPort>, delay: bool) -> Result<(), Error> {
+        port.write_data_terminal_ready(false)?;
+        port.write_request_to_send(true)?;
+
+        thread::sleep(Duration::from_millis(100));
+        if delay {thread::sleep(Duration::from_millis(1200));}
+
+        port.write_data_terminal_ready(true)?;
+        port.write_request_to_send(false)?;
+
+        if delay {thread::sleep(Duration::from_millis(400));}
+        thread::sleep(Duration::from_millis(50));
+
+        port.write_data_terminal_ready(false)?;
+
+        Ok(())
+    }
+
+    fn connect_attempt(port_name: &str, settings: &SerialPortSettings, delay: bool) -> Result<(), Error> {
         let mut last_error = Ok(());
+
         for _ in 0..5 {
             let mut port = serialport::open_with_settings(port_name, &settings)?;
             port.set_timeout(Duration::from_millis(100))?;
@@ -93,7 +92,7 @@ fn connect(port_name: &str) -> Result<Box<SerialPort>, Error>  {
                 },
                 Err(error) => {
                     print!("{}", if delay {"_"} else {"."});
-                    io::stdout().flush();
+                    io::stdout().flush()?;
                     last_error = Err(error);
                     thread::sleep(Duration::from_millis(50));
                 }
@@ -101,10 +100,10 @@ fn connect(port_name: &str) -> Result<Box<SerialPort>, Error>  {
         }
 
         last_error
-    };
+    }
 
     print!("Connecting...");
-    std::io::stdout().flush();
+    io::stdout().flush()?;
 
     let mut delay = false;
     let mut reset = false;
@@ -115,7 +114,7 @@ fn connect(port_name: &str) -> Result<Box<SerialPort>, Error>  {
             reset = true;
         }
 
-        match connect_attempt(delay) {
+        match connect_attempt(port_name, &settings, delay) {
             Ok(_) => {
                 let mut port = serialport::open_with_settings(port_name, &settings)?;
                 port.set_timeout(Duration::from_secs(3))?;
