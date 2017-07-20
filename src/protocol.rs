@@ -63,7 +63,6 @@ pub(crate) trait Protocol: Read + Write {
             match self.try_recv() {
                 Ok(packet) => {
                     if packet.command() == opcode {
-                        println!("Packet: {:?}", packet);
                         return Ok(packet);
                     }
                 },
@@ -156,7 +155,7 @@ impl Packet {
 }
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SLIPPacket(Vec<u8>);
 
 pub(crate) fn create_request(command: Opcode, body: &[u8]) -> Packet {
@@ -173,6 +172,7 @@ pub(crate) fn create_request(command: Opcode, body: &[u8]) -> Packet {
     packet.push((checksum >> 8) as u8);
     packet.push((checksum >> 16) as u8);
     packet.push((checksum >> 24) as u8);
+    packet.extend_from_slice(body);
 
     Packet(packet)
 }
