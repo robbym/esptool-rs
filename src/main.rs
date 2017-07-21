@@ -2,7 +2,7 @@
 
 #[macro_use]
 extern crate clap;
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand, ArgMatches};
 
 extern crate serialport;
 use serialport::prelude::*;
@@ -13,6 +13,7 @@ use std::time::Duration;
 use std::thread;
 use std::io;
 use std::io::Write;
+use std::collections::HashMap;
 
 mod protocol;
 mod bootloader;
@@ -178,6 +179,12 @@ fn build_cli() -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("erase_region").about("Erase a region of the flash"))
 }
 
+fn read_mac(port: &mut Box<SerialPort>, args: &ArgMatches) -> Result<(), Error> {
+    let data = [port.read_efuse(1)?, port.read_efuse(2)?];
+    println!("Data: {:?}", data);
+    Ok(())
+}
+
 fn main() {
     let args = build_cli().get_matches();
     
@@ -188,9 +195,16 @@ fn main() {
                             _ => e.exit(),
                         });
 
-    match connect(port_name, baud_rate) {
-        Ok(port) => {
+    let command = args.subcommand_name().unwrap();
+    let command_args = args.subcommand_matches(command).unwrap();
 
+    match connect(port_name, baud_rate) {
+        Ok(mut port) => {
+            let command_handler: fn(&mut Box<SerialPort>, &ArgMatches) -> Result<(), Error> = match command {
+                "read_mac" => read_mac,
+                _ => unimplemented!(),
+            };
+            command_handler(&mut port, command_args).unwrap();
         },
         Err(Error::Serial(error)) => {
             println!("Serial Error: {}", error);

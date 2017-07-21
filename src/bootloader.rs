@@ -5,19 +5,25 @@ use super::protocol;
 use super::protocol::{Protocol, Opcode, Error};
 
 pub enum Register {
-    UartDataReg
+    UartDataReg,
+    EFuseRegBase,
 }
 
 impl Into<u32> for Register {
     fn into(self) -> u32 {
         match self {
             Register::UartDataReg => 0x60000078,
+            Register::EFuseRegBase => 0x6001a000,
         }
     }
 }
 
 pub trait Bootloader: Read + Write {
-    fn read_reg(&mut self, reg: Register) -> Result<u32, Error> {
+    fn read_efuse(&mut self, index: u32) -> Result<u32, Error> {
+        self.read_reg(Register::EFuseRegBase, 4*index)
+    }
+
+    fn read_reg(&mut self, reg: Register, offset: u32) -> Result<u32, Error> {
         let reg: u32 = reg.into();
         let data = [
             (reg as u8),

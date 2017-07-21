@@ -109,7 +109,17 @@ pub(crate) enum Opcode {
     SyncFrame,
     WriteReg,
     ReadReg,
-    ConfigSPI,
+    SPISetParams,
+    SPIAttach,
+    ChangeBaudrate,
+    FlashDeflBegin,
+    FlashDeflData,
+    FlashDeflEnd,
+    SPIFlashMD5,
+    EraseFlash,
+    EraseRegion,
+    ReadFlash,
+    RunUserCode,
 }
 
 impl Into<u8> for Opcode {
@@ -124,7 +134,17 @@ impl Into<u8> for Opcode {
             Opcode::SyncFrame => 0x08,
             Opcode::WriteReg => 0x09,
             Opcode::ReadReg => 0x0A,
-            Opcode::ConfigSPI => 0x0B,
+            Opcode::SPISetParams => 0x0B,
+            Opcode::SPIAttach => 0x0D,
+            Opcode::ChangeBaudrate => 0x0F,
+            Opcode::FlashDeflBegin => 0x10,
+            Opcode::FlashDeflData => 0x11,
+            Opcode::FlashDeflEnd => 0x12,
+            Opcode::SPIFlashMD5 => 0x13,
+            Opcode::EraseFlash => 0xD0,
+            Opcode::EraseRegion => 0xD1,
+            Opcode::ReadFlash => 0xD2,
+            Opcode::RunUserCode => 0xD3,
         }
     }
 }
