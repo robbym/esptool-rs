@@ -62,7 +62,7 @@ pub(crate) trait Protocol: Read + Write {
             match self.try_recv() {
                 Ok(packet) => {
                     if packet.command() == opcode {
-                        println!("RECV: {:?}", packet);
+                        //println!("RECV: {:?}", packet);
                         return Ok(packet);
                     }
                 },
@@ -76,7 +76,7 @@ pub(crate) trait Protocol: Read + Write {
     }
 
     fn send_packet(&mut self, packet: &SLIPPacket) -> Result<(), Error> {
-        println!("SEND: {:?}", packet);
+        //println!("SEND: {:?}", packet);
         let &SLIPPacket(ref packet) = packet;
         self.write_all(&packet)?;
         Ok(())

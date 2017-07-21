@@ -40,7 +40,8 @@ pub trait Bootloader: Read + Write {
     }
 
     fn read_reg(&mut self, reg: Register, offset: u32) -> Result<u32, Error> {
-        let reg: u32 = reg.into();
+        let mut reg: u32 = reg.into();
+        reg += offset;
         let data = [
             (reg as u8),
             (reg >> 8) as u8,

@@ -180,8 +180,16 @@ fn build_cli() -> App<'static, 'static> {
 }
 
 fn read_mac(port: &mut Box<SerialPort>, args: &ArgMatches) -> Result<(), Error> {
-    let data = [port.read_efuse(1)?, port.read_efuse(2)?];
-    println!("Data: {:?}", data);
+    let data = [port.read_efuse(2)?, port.read_efuse(1)?];
+    let mac = [
+        (data[0] >> 8) as u8,
+        (data[0]) as u8,
+        (data[1] >> 24) as u8,
+        (data[1] >> 16) as u8,
+        (data[1] >> 8) as u8,
+        (data[1]) as u8,        
+    ];
+    println!("MAC: {:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Ok(())
 }
 
@@ -200,9 +208,6 @@ fn main() {
 
     match connect(port_name, baud_rate) {
         Ok(mut port) => {
-            thread::sleep(Duration::from_secs(1));
-            port.enable_flash(0).unwrap();
-
             let command_handler: fn(&mut Box<SerialPort>, &ArgMatches) -> Result<(), Error> = match command {
                 "read_mac" => read_mac,
                 _ => unimplemented!(),
