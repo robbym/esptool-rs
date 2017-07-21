@@ -62,6 +62,7 @@ pub(crate) trait Protocol: Read + Write {
             match self.try_recv() {
                 Ok(packet) => {
                     if packet.command() == opcode {
+                        println!("RECV: {:?}", packet);
                         return Ok(packet);
                     }
                 },
@@ -75,6 +76,7 @@ pub(crate) trait Protocol: Read + Write {
     }
 
     fn send_packet(&mut self, packet: &SLIPPacket) -> Result<(), Error> {
+        println!("SEND: {:?}", packet);
         let &SLIPPacket(ref packet) = packet;
         self.write_all(&packet)?;
         Ok(())
@@ -181,7 +183,8 @@ pub(crate) fn create_request(command: Opcode, body: &[u8]) -> Packet {
     let mut packet = Vec::new();
 
     let len = body.len() as u16;
-    let checksum: u32 = body.iter().fold(0xEF, |acc, n| acc ^ *n as u32);
+    //let checksum: u32 = body.iter().fold(0xEF, |acc, n| acc ^ *n as u32);
+    let checksum: u32 = 0;
 
     packet.push(0x00);
     packet.push(command.into());

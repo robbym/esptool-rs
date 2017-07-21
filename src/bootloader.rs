@@ -19,6 +19,22 @@ impl Into<u32> for Register {
 }
 
 pub trait Bootloader: Read + Write {
+    fn enable_flash(&mut self, hspi: u32) -> Result<(), Error> {
+        let data = [
+            (hspi as u8),
+            (hspi >> 8) as u8,
+            (hspi >> 16) as u8,
+            (hspi >> 24) as u8,
+            0, 0, 0, 0,
+        ];
+        let request = protocol::slip_encode(
+            protocol::create_request(Opcode::SPIAttach, &data)
+        );
+        self.send_packet(&request)?;
+        self.recv_packet(Opcode::SPIAttach)?;
+        Ok(())
+    }
+
     fn read_efuse(&mut self, index: u32) -> Result<u32, Error> {
         self.read_reg(Register::EFuseRegBase, 4*index)
     }

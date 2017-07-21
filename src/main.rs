@@ -200,6 +200,9 @@ fn main() {
 
     match connect(port_name, baud_rate) {
         Ok(mut port) => {
+            thread::sleep(Duration::from_secs(1));
+            port.enable_flash(0).unwrap();
+
             let command_handler: fn(&mut Box<SerialPort>, &ArgMatches) -> Result<(), Error> = match command {
                 "read_mac" => read_mac,
                 _ => unimplemented!(),
