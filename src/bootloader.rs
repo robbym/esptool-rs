@@ -25,18 +25,19 @@ pub trait Bootloader: Read + Write {
             (hspi >> 8) as u8,
             (hspi >> 16) as u8,
             (hspi >> 24) as u8,
-            0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
         ];
-        let request = protocol::slip_encode(
-            protocol::create_request(Opcode::SPIAttach, &data)
-        );
+        let request = protocol::slip_encode(protocol::create_request(Opcode::SPIAttach, &data));
         self.send_packet(&request)?;
         self.recv_packet(Opcode::SPIAttach)?;
         Ok(())
     }
 
     fn read_efuse(&mut self, index: u32) -> Result<u32, Error> {
-        self.read_reg(Register::EFuseRegBase, 4*index)
+        self.read_reg(Register::EFuseRegBase, 4 * index)
     }
 
     fn read_reg(&mut self, reg: Register, offset: u32) -> Result<u32, Error> {
@@ -48,9 +49,7 @@ pub trait Bootloader: Read + Write {
             (reg >> 16) as u8,
             (reg >> 24) as u8,
         ];
-        let request = protocol::slip_encode(
-            protocol::create_request(Opcode::ReadReg, &data)
-        );
+        let request = protocol::slip_encode(protocol::create_request(Opcode::ReadReg, &data));
         self.send_packet(&request)?;
 
         let response = self.recv_packet(Opcode::ReadReg)?;
@@ -61,24 +60,26 @@ pub trait Bootloader: Read + Write {
         let value = response.value();
 
         Ok(
-            (value[0] as u32) |
-            (value[1] as u32) << 8 |
-            (value[2] as u32) << 16 |
-            (value[3] as u32) << 24           
+            (value[0] as u32) | (value[1] as u32) << 8 | (value[2] as u32) << 16 |
+                (value[3] as u32) << 24,
         )
     }
 
     fn sync(&mut self) -> Result<(), Error> {
         let mut data = vec![0x07, 0x07, 0x12, 0x20];
         data.extend_from_slice(&[0x55; 32]);
-        let request = protocol::slip_encode(
-            protocol::create_request(Opcode::SyncFrame, &data)
-        );
+        let request = protocol::slip_encode(protocol::create_request(Opcode::SyncFrame, &data));
         self.send_packet(&request)?;
         self.recv_packet(Opcode::SyncFrame)?;
-        for _ in 0..7 {self.recv_packet(Opcode::SyncFrame)?;}
+        for _ in 0..7 {
+            self.recv_packet(Opcode::SyncFrame)?;
+        }
         Ok(())
     }
 }
 
-impl<T> Bootloader for T where T: Read + Write + ?Sized {}
+impl<T> Bootloader for T
+where
+    T: Read + Write + ?Sized,
+{
+}

@@ -23,19 +23,27 @@ pub(crate) trait Protocol: Read + Write {
                 0xDB => {
                     self.read_exact(&mut data)?;
                     match data[0] {
-                        0xDC => {packet.push(0xC0);},
-                        0xDD => {packet.push(0xDB);},
-                        _ => {return Err(Error::SLIPFrame);},
+                        0xDC => {
+                            packet.push(0xC0);
+                        }
+                        0xDD => {
+                            packet.push(0xDB);
+                        }
+                        _ => {
+                            return Err(Error::SLIPFrame);
+                        }
                     }
-                },
-                byte => {packet.push(byte);}
+                }
+                byte => {
+                    packet.push(byte);
+                }
             }
         }
 
         Ok(())
     }
 
-    fn try_recv(&mut self)-> Result<Packet, Error> {
+    fn try_recv(&mut self) -> Result<Packet, Error> {
         let mut packet = Vec::new();
 
         self.frame_check()?;
@@ -65,7 +73,7 @@ pub(crate) trait Protocol: Read + Write {
                         //println!("RECV: {:?}", packet);
                         return Ok(packet);
                     }
-                },
+                }
                 Err(error) => {
                     return Err(error);
                 }
@@ -83,7 +91,11 @@ pub(crate) trait Protocol: Read + Write {
     }
 }
 
-impl<T> Protocol for T where T: Read + Write + ?Sized {}
+impl<T> Protocol for T
+where
+    T: Read + Write + ?Sized,
+{
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -171,7 +183,7 @@ impl Packet {
 
     pub fn body(&self) -> &[u8] {
         let &Packet(ref packet) = self;
-        &packet[8..self.size()+8]
+        &packet[8..self.size() + 8]
     }
 }
 
@@ -205,9 +217,17 @@ pub(crate) fn slip_encode(packet: Packet) -> SLIPPacket {
 
     let mut encoded = packet.iter().fold(vec![0xC0], |mut acc, n| {
         match *n {
-            0xC0 => {acc.push(0xDB); acc.push(0xDC);},
-            0xDB => {acc.push(0xDB); acc.push(0xDD);},
-            _ => {acc.push(*n);}
+            0xC0 => {
+                acc.push(0xDB);
+                acc.push(0xDC);
+            }
+            0xDB => {
+                acc.push(0xDB);
+                acc.push(0xDD);
+            }
+            _ => {
+                acc.push(*n);
+            }
         }
         acc
     });
