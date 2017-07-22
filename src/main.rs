@@ -244,6 +244,13 @@ fn read_mac(port: &mut Box<SerialPort>, args: &ArgMatches) -> Result<(), Error> 
     Ok(())
 }
 
+fn chip_id(port: &mut Box<SerialPort>, args: &ArgMatches) -> Result<(), Error> {
+    let data = [port.read_efuse(2)?, port.read_efuse(1)?];
+    let id: u64 = ((data[0] as u64 & 0xFFFFFF) << 24) | ((data[1] as u64 >> 8) & 0xFFFFFF);
+    println!("Chip ID: 0x{:X}", id);
+    Ok(())
+}
+
 fn main() {
     let args = build_cli().get_matches();
 
@@ -261,6 +268,7 @@ fn main() {
             let command_handler: fn(&mut Box<SerialPort>, &ArgMatches)
                                     -> Result<(), Error> = match command {
                 "read_mac" => read_mac,
+                "chip_id" => chip_id,
                 _ => unimplemented!(),
             };
             command_handler(&mut port, command_args).unwrap();
